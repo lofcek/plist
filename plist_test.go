@@ -42,10 +42,12 @@ func (exp expect_error) TestUnmarshal(t *testing.T, xml_text string, v interface
 
 func TestOk(t *testing.T) {
 	var str string
-	var integer int
-	var integer8 int8
-	var integer64 int64
-	var uinteger16 uint16
+	var i int
+	var i8 int8
+	var i64 int64
+	var u16 uint16
+	var f32 float32
+	var b bool
 	type Test struct {
 		xml          string
 		variable     interface{}
@@ -55,12 +57,15 @@ func TestOk(t *testing.T) {
 	test_cases := []Test{
 		{`<string>a</string>`, &str, expect_ok{"a"}},
 		{`<string>b</string>`, &str, expect_ok{"b"}},
-		{`<integer>42</integer>`, &integer, expect_ok{int(42)}},
-		{`<integer>42</integer>`, &integer64, expect_ok{int64(42)}},
-		{`<integer>256</integer>`, &integer8, expect_error{&strconv.NumError{}}},
+		{`<integer>42</integer>`, &i, expect_ok{int(42)}},
+		{`<integer>42</integer>`, &i64, expect_ok{int64(42)}},
+		{`<integer>256</integer>`, &i8, expect_error{&strconv.NumError{}}},
 		{`<integer>256</integer>`, &str, expect_error{&UnexpectedTokenError{}}},
-		{`<integer>10</integer>`, &uinteger16, expect_ok{uint16(10)}},
+		{`<integer>10</integer>`, &u16, expect_ok{uint16(10)}},
 		{`<integer>10</integer>`, &[]int{}, expect_error{&CannotParseTypeError{}}},
+		{`<real>3.14</real>`, &f32, expect_ok{float32(3.14)}},
+		{`<true/>`, &b, expect_ok{true}},
+		{`<false/>`, &b, expect_ok{false}},
 	}
 
 	for _, c := range test_cases {

@@ -6,6 +6,7 @@ import (
 	"io"
 	"reflect"
 	"strconv"
+	"fmt"
 )
 
 func Unmarshal(b []byte, v interface{}) error {
@@ -69,6 +70,23 @@ func (d* Decoder) decodeValue(v reflect.Value) {
 				v.SetUint(num)
 			}
 			d.endElement("integer")
+		case reflect.Float32, reflect.Float64:
+			d.startElement("real")
+			num, err := strconv.ParseFloat(string(d.charData()), v.Type().Bits())
+			if err != nil {
+				d.setError(err)
+			} else {
+				v.SetFloat(num)
+			}
+			d.endElement("real")
+		case reflect.Bool:
+			tag := d.startElementOneOf("true", "false")
+			if tag == "true" {
+				v.SetBool(true)
+			} else {
+				v.SetBool(false)
+			}
+			d.endElement(tag)
 	}
 }
 
@@ -94,6 +112,26 @@ func (d *Decoder) startElement(name string) {
 				d.setError(NewUnexpectedTokenError("<" + name + ">", t))
 			}
 	}
+}
+
+func (d *Decoder) startElementOneOf(names ...string) string {
+	t, err := d.d.Token()
+	if err != nil {
+		d.setError(err)
+		return ""
+	}
+	switch t := t.(type) {
+		default:
+			d.setError(NewUnexpectedTokenError("tag one of " + fmt.Sprint(names), t))
+		case xml.StartElement:
+			for _, n := range(names) {
+				if n == t.Name.Local {
+					return n
+				}
+			}
+			d.setError(NewUnexpectedTokenError("tag one of " + fmt.Sprint(names), t))
+	}
+	return "?"
 }
 
 func (d *Decoder) endElement(name string) {
