@@ -45,6 +45,8 @@ func (d* Decoder) Decode(v interface{}) error {
 
 func (d* Decoder) decodeValue(v reflect.Value) {
 	switch(v.Kind()) {
+		default:
+			d.setError(&CannotParseTypeError{v})
 		case reflect.String:
 			d.startElement("string")
 			v.SetString(string(d.charData()))
@@ -56,6 +58,15 @@ func (d* Decoder) decodeValue(v reflect.Value) {
 				d.setError(err)
 			} else {
 				v.SetInt(num)
+			}
+			d.endElement("integer")
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			d.startElement("integer")
+			num, err := strconv.ParseUint(string(d.charData()), 10, v.Type().Bits())
+			if err != nil {
+				d.setError(err)
+			} else {
+				v.SetUint(num)
 			}
 			d.endElement("integer")
 	}

@@ -19,11 +19,13 @@ func (res expect_ok) TestUnmarshal(t *testing.T, xml_text string, v interface{})
 	err := Unmarshal([]byte(xml_text), v)
 	if err != nil {
 		t.Errorf("Unmarshaling of %q into %T unexpectedly failed: %#s",xml_text, v, err)
+		return
 	}
 
 	val := reflect.Indirect(reflect.ValueOf(v)).Interface()
 	if !reflect.DeepEqual(val, res.expected_val) {
 		t.Errorf("Unmarshaling of %q into %T should return %#v not %#v", xml_text, v, res.expected_val, val)
+		return
 	}
 }
 
@@ -43,6 +45,7 @@ func TestOk(t *testing.T) {
 	var integer int
 	var integer8 int8
 	var integer64 int64
+	var uinteger16 uint16
 	type Test struct {
 		xml          string
 		variable     interface{}
@@ -55,6 +58,9 @@ func TestOk(t *testing.T) {
 		{`<integer>42</integer>`, &integer, expect_ok{int(42)}},
 		{`<integer>42</integer>`, &integer64, expect_ok{int64(42)}},
 		{`<integer>256</integer>`, &integer8, expect_error{&strconv.NumError{}}},
+		{`<integer>256</integer>`, &str, expect_error{&UnexpectedTokenError{}}},
+		{`<integer>10</integer>`, &uinteger16, expect_ok{uint16(10)}},
+		{`<integer>10</integer>`, &[]int{}, expect_error{&CannotParseTypeError{}}},
 	}
 
 	for _, c := range test_cases {
