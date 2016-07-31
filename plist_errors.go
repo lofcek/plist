@@ -12,11 +12,11 @@ var ErrMustBePointer = errors.New("Value must be a pointer.")
 // UnexpectedTokenError appears when parse found something unexpected in data stream
 type UnexpectedTokenError struct {
 	Expected string
-	Got interface{}
+	Got      interface{}
 }
 
 func NewUnexpectedTokenError(expected string, got interface{}) *UnexpectedTokenError {
-	return &UnexpectedTokenError {
+	return &UnexpectedTokenError{
 		expected, got,
 	}
 }

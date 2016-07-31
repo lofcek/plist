@@ -2,8 +2,8 @@ package plist
 
 import (
 	"reflect"
-	"testing"
 	"strconv"
+	"testing"
 )
 
 type TestCase interface {
@@ -14,11 +14,10 @@ type expect_ok struct {
 	expected_val interface{}
 }
 
-
 func (res expect_ok) TestUnmarshal(t *testing.T, xml_text string, v interface{}) {
 	err := Unmarshal([]byte(xml_text), v)
 	if err != nil {
-		t.Errorf("Unmarshaling of %q into %T unexpectedly failed: %#s",xml_text, v, err)
+		t.Errorf("Unmarshaling of %q into %T unexpectedly failed: %#s", xml_text, v, err)
 		return
 	}
 
@@ -41,31 +40,33 @@ func (exp expect_error) TestUnmarshal(t *testing.T, xml_text string, v interface
 }
 
 func TestOk(t *testing.T) {
-	var str string
+	var s string
 	var i int
 	var i8 int8
 	var i64 int64
 	var u16 uint16
 	var f32 float32
+	var up uintptr
 	var b bool
 	type Test struct {
-		xml          string
-		variable     interface{}
+		xml       string
+		variable  interface{}
 		test_case TestCase
 	}
 
 	test_cases := []Test{
-		{`<string>a</string>`, &str, expect_ok{"a"}},
-		{`<string>b</string>`, &str, expect_ok{"b"}},
+		{`<string>a</string>`, &s, expect_ok{"a"}},
+		{`<string>b</string>`, &s, expect_ok{"b"}},
 		{`<integer>42</integer>`, &i, expect_ok{int(42)}},
 		{`<integer>42</integer>`, &i64, expect_ok{int64(42)}},
 		{`<integer>256</integer>`, &i8, expect_error{&strconv.NumError{}}},
-		{`<integer>256</integer>`, &str, expect_error{&UnexpectedTokenError{}}},
+		{`<integer>256</integer>`, &s, expect_error{&UnexpectedTokenError{}}},
 		{`<integer>10</integer>`, &u16, expect_ok{uint16(10)}},
+		{`<integer>10</integer>`, &up, expect_ok{uintptr(10)}},
 		{`<integer>10</integer>`, &[]int{}, expect_error{&CannotParseTypeError{}}},
 		{`<real>3.14</real>`, &f32, expect_ok{float32(3.14)}},
-		{`<true/>`, &b, expect_ok{true}},
 		{`<false/>`, &b, expect_ok{false}},
+		{`<true/>`, &b, expect_ok{true}},
 	}
 
 	for _, c := range test_cases {
