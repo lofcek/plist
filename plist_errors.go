@@ -22,7 +22,7 @@ func NewUnexpectedTokenError(expected string, got interface{}) *UnexpectedTokenE
 }
 
 func (err *UnexpectedTokenError) Error() string {
-	return fmt.Sprintf("Unexpected token: Expects %s, got %v",
+	return fmt.Sprintf("Unexpected token: Expects %s, got %#v",
 		err.Expected,
 		err.Got)
 }

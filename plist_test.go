@@ -1,9 +1,12 @@
 package plist
 
 import (
+	"bytes"
 	"reflect"
 	"strconv"
 	"testing"
+	"time"
+	//"fmt"
 )
 
 type TestCase interface {
@@ -49,6 +52,9 @@ func TestOk(t *testing.T) {
 	var up uintptr
 	var b bool
 	var ai []int
+	var tm time.Time
+	var buf bytes.Buffer
+
 	type Test struct {
 		xml       string
 		variable  interface{}
@@ -68,6 +74,8 @@ func TestOk(t *testing.T) {
 		{`<real>3.14</real>`, &f32, expect_ok{float32(3.14)}},
 		{`<false/>`, &b, expect_ok{false}},
 		{`<true/>`, &b, expect_ok{true}},
+		{`<date>2016-05-04T03:02:01Z</date>`, &tm, expect_ok{time.Date(2016, 5, 4, 3, 2, 1, 0, time.UTC)}},
+		{`<data>aGVsbG8=</data>`, &buf, expect_ok{*bytes.NewBuffer([]byte("hello"))}},
 		{`<array><integer>4</integer><integer>2</integer></array>`, &ai, expect_ok{[]int{4,2}}},
 	}
 

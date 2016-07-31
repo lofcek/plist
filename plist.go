@@ -1,11 +1,14 @@
 package plist
 
 import (
+	"encoding/base64"
 	"bytes"
 	"encoding/xml"
 	"io"
 	"reflect"
 	"strconv"
+	"time"
+	//"fmt"
 )
 
 func Unmarshal(b []byte, v interface{}) error {
@@ -74,6 +77,7 @@ func (d *Decoder) NextToken() xml.Token {
 	return t
 }
 
+
 func (d *Decoder) decodeValue(v reflect.Value) {
 	switch v.Kind() {
 	default:
@@ -136,6 +140,34 @@ func (d *Decoder) decodeValue(v reflect.Value) {
 			d.decodeValue(v.Index(v.Len()-1))
 		}
 		d.endElement("array")
+	case reflect.Struct:
+		var t time.Time
+		writerType := reflect.TypeOf((*io.Writer)(nil)).Elem()
+		if v.Type() == reflect.TypeOf(t) {
+			// parse it like date
+			d.startElement("date")
+			tm, err := time.Parse("2006-01-02T15:04:05Z", string(d.charData()))
+			if err != nil {
+				d.setError(err)
+			} else {
+				v.Set(reflect.ValueOf(tm))
+			}
+			d.endElement("date")
+			return
+		} else if v.Addr().Type().Implements(writerType) {
+			d.startElement("data")
+			buf := v.Addr().Interface().(io.Writer)
+			//buf.Write([]byte("hello"))
+			data := d.charData()
+			decoder := base64.NewDecoder(base64.StdEncoding, bytes.NewReader(data))
+			_, err := io.Copy(buf, decoder)
+			if err != nil {
+				d.setError(err)
+			}
+			d.endElement("data")
+			return
+		}
+		d.setError(&CannotParseTypeError{v})
 	}
 }
 
