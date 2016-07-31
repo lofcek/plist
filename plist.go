@@ -6,7 +6,6 @@ import (
 	"io"
 	"reflect"
 	"strconv"
-	//"fmt"
 )
 
 func Unmarshal(b []byte, v interface{}) error {
@@ -124,6 +123,19 @@ func (d *Decoder) decodeValue(v reflect.Value) {
 		v.SetBool(false)
 		d.startElement("false")
 		d.endElement("false")
+	case reflect.Slice:
+		d.startElement("array")
+		v.SetLen(0) 
+		for {
+			_, ok := d.PeekNextToken().(xml.StartElement)
+			if !ok {
+				break
+			}
+			newVal := reflect.Zero(v.Type().Elem())
+			v.Set(reflect.Append(v, newVal))
+			d.decodeValue(v.Index(v.Len()-1))
+		}
+		d.endElement("array")
 	}
 }
 

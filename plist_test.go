@@ -48,6 +48,7 @@ func TestOk(t *testing.T) {
 	var f32 float32
 	var up uintptr
 	var b bool
+	var ai []int
 	type Test struct {
 		xml       string
 		variable  interface{}
@@ -63,10 +64,11 @@ func TestOk(t *testing.T) {
 		{`<integer>256</integer>`, &s, expect_error{&UnexpectedTokenError{}}},
 		{`<integer>10</integer>`, &u16, expect_ok{uint16(10)}},
 		{`<integer>10</integer>`, &up, expect_ok{uintptr(10)}},
-		{`<integer>10</integer>`, &[]int{}, expect_error{&CannotParseTypeError{}}},
+		{`<integer>10</integer>`, new(chan int), expect_error{&CannotParseTypeError{}}},
 		{`<real>3.14</real>`, &f32, expect_ok{float32(3.14)}},
 		{`<false/>`, &b, expect_ok{false}},
 		{`<true/>`, &b, expect_ok{true}},
+		{`<array><integer>4</integer><integer>2</integer></array>`, &ai, expect_ok{[]int{4,2}}},
 	}
 
 	for _, c := range test_cases {
