@@ -10,5 +10,7 @@ TODOs:
 - don't have a problem with comments and whitespaces in values
 - data could be encoded not not in io.Writers, but also in something like json.RawMessage
 - use function xml.DecodeElement
-- better names in tests
 - write examples of using the library into this file
+- support also member like pointer to something instead of direct value
+- recovery from panic
+- add names of plist items into tags
