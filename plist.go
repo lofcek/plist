@@ -32,11 +32,8 @@ type Decoder struct {
 	// internal data struct - d embeeded decoder
 	d *xml.Decoder
 
-	// first error that appear
+	// here we store the first error that appears
 	err error
-
-	// token obtain by peekToken
-	peekToken interface{}
 }
 
 // Decode is something like Unmarshal, but we have an object store status information
@@ -47,28 +44,23 @@ func (d *Decoder) Decode(v interface{}) error {
 		d.setError(ErrMustBePointer)
 		return d.err
 	}
-	d.decodeValue(reflect.Indirect(val))
+	d.decode(reflect.Indirect(val))
 	return d.err
 }
 
-// Look to next token, but don't move ahead
-func (d *Decoder) PeekNextToken() xml.Token {
-	var err error
-	if d.peekToken == nil {
-		d.peekToken, err = d.d.Token()
+func (d *Decoder) DecodeElement(v interface{}, start *xml.StartElement) {
+	if d.err == nil {
+		err := d.d.DecodeElement(v, start)
 		if err != nil {
 			d.setError(err)
 		}
 	}
-	return d.peekToken
 }
 
-// Return nextToken
-func (d *Decoder) NextToken() xml.Token {
-	if d.peekToken != nil {
-		tmp := d.peekToken
-		d.peekToken = nil
-		return tmp
+// Return next Token
+func (d *Decoder) Token() xml.Token {
+	if d.err != nil {
+		return io.EOF
 	}
 	t, err := d.d.Token()
 	if err != nil {
@@ -77,136 +69,165 @@ func (d *Decoder) NextToken() xml.Token {
 	return t
 }
 
+func (d *Decoder) decode(v reflect.Value) error {
+	for {
+		t,err := d.d.Token()
+		if err != nil {
+			return d.setError(err)
+		}
+		switch se := t.(type) {
+			case xml.StartElement:
+				return d.decodeElement(v, se)
+			case xml.Comment:
+				continue
+			case xml.CharData:
+				if len(bytes.TrimSpace([]byte(se))) == 0 {
+					continue
+				}
+				return d.setError(NewUnexpectedTokenError("<any token>", t))
+			default:
+				return d.setError(NewUnexpectedTokenError("<any token>", t))
+		}
+	}
+}
 
-func (d *Decoder) decodeValue(v reflect.Value) {
+
+func (d *Decoder) decodeElement(v reflect.Value, se xml.StartElement) error {
 	switch v.Kind() {
 	default:
-		d.setError(&CannotParseTypeError{v})
+		return d.setError(&CannotParseTypeError{v})
 	case reflect.String:
-		d.startElement("string")
-		v.SetString(string(d.charData()))
-		d.endElement("string")
+		if se.Name.Local != "string" {
+			return d.setError(NewUnexpectedTokenError("<string>", se))
+		}
+		var s string
+		d.DecodeElement(&s, &se)
+		v.SetString(s)
+		return nil
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		d.startElement("integer")
-		num, err := strconv.ParseInt(string(d.charData()), 10, v.Type().Bits())
-		if err != nil {
-			d.setError(err)
-		} else {
-			v.SetInt(num)
+		if se.Name.Local != "integer" {
+			return d.setError(NewUnexpectedTokenError("<integer>", se))
 		}
-		d.endElement("integer")
+		var s string
+		d.DecodeElement(&s, &se)
+		num, err := strconv.ParseInt(s, 10, v.Type().Bits())
+		if err != nil {
+			return d.setError(err)
+		}
+		v.SetInt(num)
+		return nil
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		d.startElement("integer")
-		num, err := strconv.ParseUint(string(d.charData()), 10, v.Type().Bits())
-		if err != nil {
-			d.setError(err)
-		} else {
-			v.SetUint(num)
+		if se.Name.Local != "integer" {
+			return d.setError(NewUnexpectedTokenError("<integer>", se))
 		}
-		d.endElement("integer")
+		var s string
+		d.DecodeElement(&s, &se)
+		num, err := strconv.ParseUint(s, 10, v.Type().Bits())
+		if err != nil {
+			return d.setError(err)
+		}
+		v.SetUint(num)
+		return nil
 	case reflect.Float32, reflect.Float64:
-		d.startElement("real")
-		num, err := strconv.ParseFloat(string(d.charData()), v.Type().Bits())
+		if se.Name.Local != "real" {
+			return d.setError(NewUnexpectedTokenError("<real>", se))
+		}
+		var s string
+		d.DecodeElement(&s, &se)
+		num, err := strconv.ParseFloat(s, v.Type().Bits())
 		if err != nil {
-			d.setError(err)
-		} else {
-			v.SetFloat(num)
+			return d.setError(err)
 		}
-		d.endElement("real")
+		v.SetFloat(num)
+		return nil
 	case reflect.Bool:
-		t := d.PeekNextToken()
-		switch t := t.(type) {
-			case xml.StartElement:
-				if t.Name.Local == "true" {
-					v.SetBool(true)
-					d.startElement("true")
-					d.endElement("true")
-					return
-				}
-			}
-		v.SetBool(false)
-		d.startElement("false")
-		d.endElement("false")
-	case reflect.Slice:
-		d.startElement("array")
-		v.SetLen(0) 
-		for {
-			_, ok := d.PeekNextToken().(xml.StartElement)
-			if !ok {
-				break
-			}
-			newVal := reflect.Zero(v.Type().Elem())
-			v.Set(reflect.Append(v, newVal))
-			d.decodeValue(v.Index(v.Len()-1))
+		if se.Name.Local != "true" && se.Name.Local != "false" {
+			return d.setError(NewUnexpectedTokenError("<true> or <false>", se))
 		}
-		d.endElement("array")
+		v.SetBool(se.Name.Local == "true")
+		return nil
+	case reflect.Slice:
+		if se.Name.Local != "array" {
+			return d.setError(NewUnexpectedTokenError("<array>", se))
+		}
+		v.SetLen(0)
+		for {
+			t, err := d.d.Token()
+			if err != nil {
+				return err
+			}
+			switch se := t.(type) {
+				case xml.StartElement:
+					newVal := reflect.Zero(v.Type().Elem())
+					v.Set(reflect.Append(v, newVal))
+					err :=  d.decodeElement(v.Index(v.Len()-1), se)
+					if err != nil {
+						return err
+					}
+				case xml.EndElement:
+					return nil
+				default:
+					continue
+			}
+		}
 	case reflect.Struct:
 		var t time.Time
 		writerType := reflect.TypeOf((*io.Writer)(nil)).Elem()
 		if v.Type() == reflect.TypeOf(t) {
 			// parse it like date
-			d.startElement("date")
-			tm, err := time.Parse("2006-01-02T15:04:05Z", string(d.charData()))
-			if err != nil {
-				d.setError(err)
-			} else {
-				v.Set(reflect.ValueOf(tm))
+			if se.Name.Local != "date" {
+				return d.setError(NewUnexpectedTokenError("<date>", se))
 			}
-			d.endElement("date")
-			return
+			var s string
+			d.DecodeElement(&s, &se)
+			tm, err := time.Parse("2006-01-02T15:04:05Z", string(s))
+			if err != nil {
+				return d.setError(err)
+			}
+			v.Set(reflect.ValueOf(tm))
+			return nil
 		} else if v.Addr().Type().Implements(writerType) {
-			d.startElement("data")
+			if se.Name.Local != "data" {
+				return d.setError(NewUnexpectedTokenError("<data>", t))
+			}
+			var data []byte
+			d.DecodeElement(&data, &se)
 			buf := v.Addr().Interface().(io.Writer)
-			//buf.Write([]byte("hello"))
-			data := d.charData()
 			decoder := base64.NewDecoder(base64.StdEncoding, bytes.NewReader(data))
 			_, err := io.Copy(buf, decoder)
 			if err != nil {
-				d.setError(err)
+				return d.setError(err)
 			}
-			d.endElement("data")
-			return
+			return nil
 		}
-		d.setError(&CannotParseTypeError{v})
+		return d.setError(&CannotParseTypeError{v})
 	}
 }
 
 // setError set d.err but only if is empty
-func (d *Decoder) setError(e error) {
+func (d *Decoder) setError(e error) error {
 	if d.err == nil {
 		d.err = e
 	}
-}
-
-// verify, if it next token really is startElement if given name
-func (d *Decoder) startElement(name string) {
-	t := d.NextToken()
-	switch t := t.(type) {
-	default:
-		d.setError(NewUnexpectedTokenError("<"+name+">", t))
-	case xml.StartElement:
-		if t.Name.Local != name {
-			d.setError(NewUnexpectedTokenError("<"+name+">", t))
-		}
-	}
+	return d.err
 }
 
 // verify, if it next token really is endElement if given name
-func (d *Decoder) endElement(name string) {
-	t := d.NextToken()
+/*func (d *Decoder) endElement() {
+	t := d.Token()
 	switch t := t.(type) {
 	default:
 		d.setError(NewUnexpectedTokenError("</"+name+">", t))
 	case xml.EndElement:
 		if t.Name.Local != name {
-			d.setError(NewUnexpectedTokenError("</"+name+">", t))
+		d.setError(NewUnexpectedTokenError("</"+name+">", t))
 		}
 	}
-}
+}*/
 
 // verify, if it next token really charData and return that data
-func (d *Decoder) charData() []byte {
-	t := d.NextToken()
+/*func (d *Decoder) charData() []byte {
+	t := d.Token()
 	switch t := t.(type) {
 	default:
 		d.setError(NewUnexpectedTokenError("CharData", t))
@@ -214,4 +235,4 @@ func (d *Decoder) charData() []byte {
 	case xml.CharData:
 		return t
 	}
-}
+}*/

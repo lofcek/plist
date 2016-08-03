@@ -24,13 +24,13 @@ func TestUnmarshalPlist(t *testing.T) {
 
 	type TestUnmarshal struct {
 		xml  string
-		pvar  interface{}
+		pvar interface{}
 		test TestUnmarshaler
 	}
 
 	test_cases := []TestUnmarshal{
 		{`<string>a</string>`, &s, UnmarshalExpectsEq{"a"}},
-		{`<string>b</string>`, &s, UnmarshalExpectsEq{"b"}},
+		{`<string>&lt;&gt;</string>`, &s, UnmarshalExpectsEq{"<>"}},
 		{`<integer>42</integer>`, &i, UnmarshalExpectsEq{int(42)}},
 		{`<integer>42</integer>`, &i64, UnmarshalExpectsEq{int64(42)}},
 		{`<integer>256</integer>`, &i8, UnmarshalExpectsError{&strconv.NumError{}}},
@@ -43,7 +43,7 @@ func TestUnmarshalPlist(t *testing.T) {
 		{`<true/>`, &b, UnmarshalExpectsEq{true}},
 		{`<date>2016-05-04T03:02:01Z</date>`, &tm, UnmarshalExpectsEq{time.Date(2016, 5, 4, 3, 2, 1, 0, time.UTC)}},
 		{`<data>aGVsbG8=</data>`, &buf, UnmarshalExpectsEq{*bytes.NewBuffer([]byte("hello"))}},
-		{`<array><integer>4</integer><integer>2</integer></array>`, &ai, UnmarshalExpectsEq{[]int{4,2}}},
+		{`<array><integer>4</integer><integer>2</integer></array>`, &ai, UnmarshalExpectsEq{[]int{4, 2}}},
 	}
 
 	for _, c := range test_cases {
@@ -83,4 +83,3 @@ func (exp UnmarshalExpectsError) TestUnmarshal(t *testing.T, xml_text string, v 
 		t.Errorf("Unmarshaling of %q into %T expected error %#v, but got %#v", xml_text, v, exp.errType, err)
 	}
 }
-

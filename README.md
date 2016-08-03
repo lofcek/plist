@@ -14,3 +14,4 @@ TODOs:
 - support also member like pointer to something instead of direct value
 - recovery from panic
 - add names of plist items into tags
+- verify EOF
