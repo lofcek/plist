@@ -7,9 +7,7 @@ Parser can unmarshal all known types (including arrays, timestamps and base64 en
 
 TODOs:
 - support of dicts
-- don't have a problem with comments and whitespaces in values
 - data could be encoded not not in io.Writers, but also in something like json.RawMessage
-- use function xml.DecodeElement
 - write examples of using the library into this file
 - support also member like pointer to something instead of direct value
 - recovery from panic

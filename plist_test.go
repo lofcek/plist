@@ -21,6 +21,7 @@ func TestUnmarshalPlist(t *testing.T) {
 	var ai []int
 	var tm time.Time
 	var buf bytes.Buffer
+	var af32 []float32
 
 	type TestUnmarshal struct {
 		xml  string
@@ -44,6 +45,7 @@ func TestUnmarshalPlist(t *testing.T) {
 		{`<date>2016-05-04T03:02:01Z</date>`, &tm, UnmarshalExpectsEq{time.Date(2016, 5, 4, 3, 2, 1, 0, time.UTC)}},
 		{`<data>aGVsbG8=</data>`, &buf, UnmarshalExpectsEq{*bytes.NewBuffer([]byte("hello"))}},
 		{`<array><integer>4</integer><integer>2</integer></array>`, &ai, UnmarshalExpectsEq{[]int{4, 2}}},
+		{` <!-- use spaces and comments inside--> <array><!-- --><real>4</real> <real>2</real><!-- --> </array> <!-- -->`, &af32, UnmarshalExpectsEq{[]float32{4, 2}}},
 	}
 
 	for _, c := range test_cases {

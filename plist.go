@@ -1,8 +1,8 @@
 package plist
 
 import (
-	"encoding/base64"
 	"bytes"
+	"encoding/base64"
 	"encoding/xml"
 	"io"
 	"reflect"
@@ -69,28 +69,39 @@ func (d *Decoder) Token() xml.Token {
 	return t
 }
 
-func (d *Decoder) decode(v reflect.Value) error {
+func (d *Decoder) firstNotEmptyToken() (xml.Token, error) {
 	for {
-		t,err := d.d.Token()
+		t, err := d.d.Token()
 		if err != nil {
-			return d.setError(err)
+			return t, d.setError(err)
 		}
-		switch se := t.(type) {
-			case xml.StartElement:
-				return d.decodeElement(v, se)
-			case xml.Comment:
+		switch t := t.(type) {
+		case xml.Comment:
+			continue
+		case xml.CharData:
+			if len(bytes.TrimSpace([]byte(t))) == 0 {
 				continue
-			case xml.CharData:
-				if len(bytes.TrimSpace([]byte(se))) == 0 {
-					continue
-				}
-				return d.setError(NewUnexpectedTokenError("<any token>", t))
-			default:
-				return d.setError(NewUnexpectedTokenError("<any token>", t))
+			}
+		default:
+			return t, nil
 		}
 	}
 }
 
+func (d *Decoder) decode(v reflect.Value) error {
+	for {
+		t, err := d.firstNotEmptyToken()
+		if err != nil {
+			return d.setError(err)
+		}
+		switch se := t.(type) {
+		case xml.StartElement:
+			return d.decodeElement(v, se)
+		default:
+			return d.setError(NewUnexpectedTokenError("<any token>", t))
+		}
+	}
+}
 
 func (d *Decoder) decodeElement(v reflect.Value, se xml.StartElement) error {
 	switch v.Kind() {
@@ -157,17 +168,17 @@ func (d *Decoder) decodeElement(v reflect.Value, se xml.StartElement) error {
 				return err
 			}
 			switch se := t.(type) {
-				case xml.StartElement:
-					newVal := reflect.Zero(v.Type().Elem())
-					v.Set(reflect.Append(v, newVal))
-					err :=  d.decodeElement(v.Index(v.Len()-1), se)
-					if err != nil {
-						return err
-					}
-				case xml.EndElement:
-					return nil
-				default:
-					continue
+			case xml.StartElement:
+				newVal := reflect.Zero(v.Type().Elem())
+				v.Set(reflect.Append(v, newVal))
+				err := d.decodeElement(v.Index(v.Len()-1), se)
+				if err != nil {
+					return err
+				}
+			case xml.EndElement:
+				return nil
+			default:
+				continue
 			}
 		}
 	case reflect.Struct:
