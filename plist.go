@@ -104,7 +104,6 @@ func (d *Decoder) decode(v reflect.Value) error {
 }
 
 func (d *Decoder) decodeElement(v reflect.Value, se xml.StartElement) error {
-	//fmt.Printf("decode element %p %s\n", d, se.Name.Local)
 	switch v.Kind() {
 	default:
 		return d.setError(&CannotParseTypeError{v})
@@ -157,6 +156,11 @@ func (d *Decoder) decodeElement(v reflect.Value, se xml.StartElement) error {
 			return d.setError(NewUnexpectedTokenError("<true> or <false>", se))
 		}
 		v.SetBool(se.Name.Local == "true")
+		var s struct{}
+		err := d.d.DecodeElement(&s, &se)
+		if err != nil {
+			return d.setError(err)
+		}
 		return nil
 	case reflect.Slice:
 		if se.Name.Local != "array" {
@@ -178,6 +182,7 @@ func (d *Decoder) decodeElement(v reflect.Value, se xml.StartElement) error {
 				}
 				continue
 			case xml.EndElement:
+				// todo testing wheather endElement is really </array>
 				return nil
 			default:
 				return d.setError(NewUnexpectedTokenError("</array>", se))
@@ -192,7 +197,7 @@ func (d *Decoder) decodeElement(v reflect.Value, se xml.StartElement) error {
 				return d.setError(NewUnexpectedTokenError("<date>", se))
 			}
 			var s string
-			d.DecodeElement(&s, &se)
+			d.d.DecodeElement(&s, &se)
 			tm, err := time.Parse("2006-01-02T15:04:05Z", string(s))
 			if err != nil {
 				return d.setError(err)
@@ -212,6 +217,36 @@ func (d *Decoder) decodeElement(v reflect.Value, se xml.StartElement) error {
 				return d.setError(err)
 			}
 			return nil
+		} else {
+			// this struct have to decoded to members
+			for {
+				t,err := d.firstNotEmptyToken()
+				if err != nil {
+					return d.setError(err)
+				}
+
+				switch t := t.(type) {
+					default:
+						return d.setError(NewUnexpectedTokenError("</" + se.Name.Local + ">", t))
+					case xml.EndElement:
+						return nil	// everything was parsed fine
+					case xml.StartElement:
+						if t.Name.Local != "key" {
+							return d.setError(NewUnexpectedTokenError("<key>", &t))
+						}
+						var key string
+						err = d.d.DecodeElement(&key, &t)
+						if err != nil {
+							return d.setError(err)
+						}
+						f :=  v.FieldByName(key)
+
+						err = d.decode(f)
+						if err != nil {
+							return d.setError(err)
+						}
+				}
+			}
 		}
 		return d.setError(&CannotParseTypeError{v})
 	}
@@ -224,28 +259,3 @@ func (d *Decoder) setError(e error) error {
 	}
 	return d.err
 }
-
-// verify, if it next token really is endElement if given name
-/*func (d *Decoder) endElement() {
-	t := d.Token()
-	switch t := t.(type) {
-	default:
-		d.setError(NewUnexpectedTokenError("</"+name+">", t))
-	case xml.EndElement:
-		if t.Name.Local != name {
-		d.setError(NewUnexpectedTokenError("</"+name+">", t))
-		}
-	}
-}*/
-
-// verify, if it next token really charData and return that data
-/*func (d *Decoder) charData() []byte {
-	t := d.Token()
-	switch t := t.(type) {
-	default:
-		d.setError(NewUnexpectedTokenError("CharData", t))
-		return nil
-	case xml.CharData:
-		return t
-	}
-}*/

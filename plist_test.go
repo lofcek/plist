@@ -23,43 +23,47 @@ func TestUnmarshalPlist(t *testing.T) {
 	var af32 []float32
 	var ai []int
 
-	/*var S1 struct {	// structure without tags
+	type S1 struct {	// structure without tags
 		I int
 		B bool
-	}*/
+	}
+	var s1 S1
 
 	type TestUnmarshal struct {
+		run  bool
 		xml  string
 		pvar interface{}
 		test TestUnmarshaler
 	}
 
 	test_cases := []TestUnmarshal{
-		{`<string>a</string>`, &s, UnmarshalExpectsEq{"a"}},
-		{`<string>&lt;&gt;</string>`, &s, UnmarshalExpectsEq{"<>"}},
-		{`<integer>42</integer>`, &i, UnmarshalExpectsEq{int(42)}},
-		{`<integer>42</integer>`, &i64, UnmarshalExpectsEq{int64(42)}},
-		{`<integer>256</integer>`, &i8, UnmarshalExpectsError{&strconv.NumError{}}},
-		{`<integer>256</integer>`, &s, UnmarshalExpectsError{&UnexpectedTokenError{}}},
-		{`<integer>10</integer>`, &u16, UnmarshalExpectsEq{uint16(10)}},
-		{`<integer>10</integer>`, &up, UnmarshalExpectsEq{uintptr(10)}},
-		{`<integer>10</integer>`, new(chan int), UnmarshalExpectsError{&CannotParseTypeError{}}},
-		{`<real>3.14</real>`, &f32, UnmarshalExpectsEq{float32(3.14)}},
-		{`<false/>`, &b, UnmarshalExpectsEq{false}},
-		{`<true/>`, &b, UnmarshalExpectsEq{true}},
-		{`<date>2016-05-04T03:02:01Z</date>`, &tm, UnmarshalExpectsEq{time.Date(2016, 5, 4, 3, 2, 1, 0, time.UTC)}},
-		{`<data>aGVsbG8=</data>`, &buf, UnmarshalExpectsEq{*bytes.NewBuffer([]byte("hello"))}},
-		{`<array><integer>4</integer><integer>2</integer></array>`, &ai, UnmarshalExpectsEq{[]int{4, 2}}},
-		{` <!-- use spaces and comments inside--> <array><!-- --><real>4</real> <real>2</real><!-- --> </array> <!-- -->`, &af32, UnmarshalExpectsEq{[]float32{4, 2}}},
-		//{`<any><key>B</key><true/><key>I</key><integer>42</integer></any>`, &S1, UnmarshalExpectsEq{struct{I int;B bool}{42, true}}},
+		{true, `<string>a</string>`, &s, UnmarshalExpectsEq{"a"}},
+		{true, `<string>&lt;&gt;</string>`, &s, UnmarshalExpectsEq{"<>"}},
+		{true, `<integer>42</integer>`, &i, UnmarshalExpectsEq{int(42)}},
+		{true, `<integer>42</integer>`, &i64, UnmarshalExpectsEq{int64(42)}},
+		{true, `<integer>256</integer>`, &i8, UnmarshalExpectsError{&strconv.NumError{}}},
+		{true, `<integer>256</integer>`, &s, UnmarshalExpectsError{&UnexpectedTokenError{}}},
+		{true, `<integer>10</integer>`, &u16, UnmarshalExpectsEq{uint16(10)}},
+		{true, `<integer>10</integer>`, &up, UnmarshalExpectsEq{uintptr(10)}},
+		{true, `<integer>10</integer>`, new(chan int), UnmarshalExpectsError{&CannotParseTypeError{}}},
+		{true, `<real>3.14</real>`, &f32, UnmarshalExpectsEq{float32(3.14)}},
+		{true, `<false/>`, &b, UnmarshalExpectsEq{false}},
+		{true, `<true/>`, &b, UnmarshalExpectsEq{true}},
+		{true, `<date>2016-05-04T03:02:01Z</date>`, &tm, UnmarshalExpectsEq{time.Date(2016, 5, 4, 3, 2, 1, 0, time.UTC)}},
+		{true, `<data>aGVsbG8=</data>`, &buf, UnmarshalExpectsEq{*bytes.NewBuffer([]byte("hello"))}},
+		{true, `<array><integer>4</integer><integer>2</integer></array>`, &ai, UnmarshalExpectsEq{[]int{4, 2}}},
+		{true, ` <!-- use spaces and comments inside--> <array><!-- --><real>4</real> <real>2</real><!-- --> </array> <!-- -->`, &af32, UnmarshalExpectsEq{[]float32{4, 2}}},
+		{true, `<any><key>B</key><true/><key>I</key><integer>42</integer></any>`, &s1, UnmarshalExpectsEq{S1{42, true}}},
 	}
 
 	for _, c := range test_cases {
-		// set c.pvar to zero before test starts
-		v := reflect.Indirect(reflect.ValueOf(c.pvar))
-		v.Set(reflect.Zero(reflect.TypeOf(v.Interface())))
+		if c.run {
+			// set c.pvar to zero before test starts
+			v := reflect.Indirect(reflect.ValueOf(c.pvar))
+			v.Set(reflect.Zero(reflect.TypeOf(v.Interface())))
 
-		c.test.TestUnmarshal(t, c.xml, c.pvar)
+			c.test.TestUnmarshal(t, c.xml, c.pvar)
+		}
 	}
 }
 
