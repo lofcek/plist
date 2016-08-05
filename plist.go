@@ -13,7 +13,21 @@ import (
 
 func Unmarshal(b []byte, v interface{}) error {
 	d := NewDecoder(bytes.NewReader(b))
-	return d.Decode(v)
+	err := d.Decode(v)
+	if d.err != nil {
+		return d.err
+	}
+	if err != nil {
+		return err
+	}
+	t, err := d.firstNotEmptyToken()
+	if err != io.EOF {
+		if err != nil {
+			return err
+		}
+		return NewUnexpectedTokenError("EOF", t)
+	}
+	return nil
 }
 
 // NewDecoder returns a new decoder that reads from r.
@@ -82,6 +96,7 @@ func (d *Decoder) firstNotEmptyToken() (xml.Token, error) {
 			if len(bytes.TrimSpace([]byte(t))) == 0 {
 				continue
 			}
+			return t, nil
 		default:
 			return t, nil
 		}
@@ -220,31 +235,31 @@ func (d *Decoder) decodeElement(v reflect.Value, se xml.StartElement) error {
 		} else {
 			// this struct have to decoded to members
 			for {
-				t,err := d.firstNotEmptyToken()
+				t, err := d.firstNotEmptyToken()
 				if err != nil {
 					return d.setError(err)
 				}
 
 				switch t := t.(type) {
-					default:
-						return d.setError(NewUnexpectedTokenError("</" + se.Name.Local + ">", t))
-					case xml.EndElement:
-						return nil	// everything was parsed fine
-					case xml.StartElement:
-						if t.Name.Local != "key" {
-							return d.setError(NewUnexpectedTokenError("<key>", &t))
-						}
-						var key string
-						err = d.d.DecodeElement(&key, &t)
-						if err != nil {
-							return d.setError(err)
-						}
-						f :=  v.FieldByName(key)
+				default:
+					return d.setError(NewUnexpectedTokenError("</"+se.Name.Local+">", t))
+				case xml.EndElement:
+					return nil // everything was parsed fine
+				case xml.StartElement:
+					if t.Name.Local != "key" {
+						return d.setError(NewUnexpectedTokenError("<key>", &t))
+					}
+					var key string
+					err = d.d.DecodeElement(&key, &t)
+					if err != nil {
+						return d.setError(err)
+					}
+					f := v.FieldByName(key)
 
-						err = d.decode(f)
-						if err != nil {
-							return d.setError(err)
-						}
+					err = d.decode(f)
+					if err != nil {
+						return d.setError(err)
+					}
 				}
 			}
 		}
