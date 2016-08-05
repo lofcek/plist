@@ -18,10 +18,15 @@ func TestUnmarshalPlist(t *testing.T) {
 	var f32 float32
 	var up uintptr
 	var b bool
-	var ai []int
 	var tm time.Time
 	var buf bytes.Buffer
 	var af32 []float32
+	var ai []int
+
+	/*var S1 struct {	// structure without tags
+		I int
+		B bool
+	}*/
 
 	type TestUnmarshal struct {
 		xml  string
@@ -46,9 +51,14 @@ func TestUnmarshalPlist(t *testing.T) {
 		{`<data>aGVsbG8=</data>`, &buf, UnmarshalExpectsEq{*bytes.NewBuffer([]byte("hello"))}},
 		{`<array><integer>4</integer><integer>2</integer></array>`, &ai, UnmarshalExpectsEq{[]int{4, 2}}},
 		{` <!-- use spaces and comments inside--> <array><!-- --><real>4</real> <real>2</real><!-- --> </array> <!-- -->`, &af32, UnmarshalExpectsEq{[]float32{4, 2}}},
+		//{`<any><key>B</key><true/><key>I</key><integer>42</integer></any>`, &S1, UnmarshalExpectsEq{struct{I int;B bool}{42, true}}},
 	}
 
 	for _, c := range test_cases {
+		// set c.pvar to zero before test starts
+		v := reflect.Indirect(reflect.ValueOf(c.pvar))
+		v.Set(reflect.Zero(reflect.TypeOf(v.Interface())))
+
 		c.test.TestUnmarshal(t, c.xml, c.pvar)
 	}
 }

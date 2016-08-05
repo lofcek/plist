@@ -8,7 +8,7 @@ import (
 	"reflect"
 	"strconv"
 	"time"
-	//"fmt"
+	// "fmt"
 )
 
 func Unmarshal(b []byte, v interface{}) error {
@@ -48,6 +48,7 @@ func (d *Decoder) Decode(v interface{}) error {
 	return d.err
 }
 
+// Return next Token
 func (d *Decoder) DecodeElement(v interface{}, start *xml.StartElement) {
 	if d.err == nil {
 		err := d.d.DecodeElement(v, start)
@@ -57,7 +58,6 @@ func (d *Decoder) DecodeElement(v interface{}, start *xml.StartElement) {
 	}
 }
 
-// Return next Token
 func (d *Decoder) Token() xml.Token {
 	if d.err != nil {
 		return io.EOF
@@ -104,6 +104,7 @@ func (d *Decoder) decode(v reflect.Value) error {
 }
 
 func (d *Decoder) decodeElement(v reflect.Value, se xml.StartElement) error {
+	//fmt.Printf("decode element %p %s\n", d, se.Name.Local)
 	switch v.Kind() {
 	default:
 		return d.setError(&CannotParseTypeError{v})
@@ -163,9 +164,9 @@ func (d *Decoder) decodeElement(v reflect.Value, se xml.StartElement) error {
 		}
 		v.SetLen(0)
 		for {
-			t, err := d.d.Token()
+			t, err := d.firstNotEmptyToken()
 			if err != nil {
-				return err
+				return d.setError(err)
 			}
 			switch se := t.(type) {
 			case xml.StartElement:
@@ -173,12 +174,13 @@ func (d *Decoder) decodeElement(v reflect.Value, se xml.StartElement) error {
 				v.Set(reflect.Append(v, newVal))
 				err := d.decodeElement(v.Index(v.Len()-1), se)
 				if err != nil {
-					return err
+					return d.setError(err)
 				}
+				continue
 			case xml.EndElement:
 				return nil
 			default:
-				continue
+				return d.setError(NewUnexpectedTokenError("</array>", se))
 			}
 		}
 	case reflect.Struct:
