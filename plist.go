@@ -8,7 +8,7 @@ import (
 	"reflect"
 	"strconv"
 	"time"
-	// "fmt"
+	//"fmt"
 )
 
 func Unmarshal(b []byte, v interface{}) error {
@@ -264,6 +264,9 @@ func (d *Decoder) decodeElement(v reflect.Value, se xml.StartElement) error {
 			}
 		}
 		return d.setError(&CannotParseTypeError{v})
+	case reflect.Ptr:
+		v.Set(reflect.New(v.Type().Elem()))
+		return d.decodeElement(reflect.Indirect(v), se)
 	}
 }
 

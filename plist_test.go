@@ -2,6 +2,7 @@ package plist
 
 import (
 	"bytes"
+	"encoding/xml"
 	"reflect"
 	"strconv"
 	"testing"
@@ -22,12 +23,15 @@ func TestUnmarshalPlist(t *testing.T) {
 	var buf bytes.Buffer
 	var af32 []float32
 	var ai []int
+	var pi *int
+	var i4 int = 4
 
 	type S1 struct { // structure without tags
 		I int
 		B bool
 	}
 	var s1 S1
+	var ps1 *S1
 
 	type TestUnmarshal struct {
 		run  bool
@@ -55,8 +59,11 @@ func TestUnmarshalPlist(t *testing.T) {
 		{all, `<date>2016-05-04T03:02:01Z</date>`, &tm, UnmarshalExpectsEq{time.Date(2016, 5, 4, 3, 2, 1, 0, time.UTC)}},
 		{all, `<data>aGVsbG8=</data>`, &buf, UnmarshalExpectsEq{*bytes.NewBuffer([]byte("hello"))}},
 		{all, `<array><integer>4</integer><integer>2</integer></array>`, &ai, UnmarshalExpectsEq{[]int{4, 2}}},
+		{all, `<array></integer>`, &ai, UnmarshalExpectsError{&xml.SyntaxError{}}},
 		{all, ` <!-- use spaces and comments inside--> <array><!-- --><real>4</real> <real>2</real><!-- --> </array> <!-- -->`, &af32, UnmarshalExpectsEq{[]float32{4, 2}}},
 		{all, `<any><key>B</key><true/><key>I</key><integer>42</integer></any>`, &s1, UnmarshalExpectsEq{S1{42, true}}},
+		{all, `<integer>4</integer>`, &pi, UnmarshalExpectsEq{&i4}},
+		{all, `<any><key>B</key><true/><key>I</key><integer>42</integer></any>`, &ps1, UnmarshalExpectsEq{&S1{42, true}}},
 	}
 
 	for _, c := range test_cases {
