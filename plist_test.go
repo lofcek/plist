@@ -33,6 +33,15 @@ func TestUnmarshalPlist(t *testing.T) {
 	var s1 S1
 	var ps1 *S1
 
+	type S2 struct {	// struct with and without tags
+		// plist shold swap names A and X
+		A	int `plist:"C"`
+		B	int
+		C	int `plist:"A"`
+		D	int `plist:"-"`
+	}
+	var s2 S2
+
 	type TestUnmarshal struct {
 		run  bool
 		xml  string
@@ -64,14 +73,15 @@ func TestUnmarshalPlist(t *testing.T) {
 		{all, `<any><key>B</key><true/><key>I</key><integer>42</integer></any>`, &s1, UnmarshalExpectsEq{S1{42, true}}},
 		{all, `<integer>4</integer>`, &pi, UnmarshalExpectsEq{&i4}},
 		{all, `<any><key>B</key><true/><key>I</key><integer>42</integer></any>`, &ps1, UnmarshalExpectsEq{&S1{42, true}}},
+		{all, `<any><key>B</key><integer>1</integer><key>A</key><integer>2</integer><key>C</key><integer>3</integer></any>`, &s2, UnmarshalExpectsEq{S2{B:1, C:2, A:3, D:0}}},
+		{all, `<any><key>B</key><integer>1</integer><key>A</key><integer>2</integer><key>C</key><integer>3</integer><key>D</key><integer>5</integer></any>`, &s2, UnmarshalExpectsEq{S2{B:1, C:2, A:3, D:0}}},
 	}
 
 	for _, c := range test_cases {
 		if c.run {
 			// set c.pvar to zero before test starts
 			v := reflect.Indirect(reflect.ValueOf(c.pvar))
-			v.Set(reflect.Zero(reflect.TypeOf(v.Interface())))
-
+			v.Set(reflect.Zero(v.Type()))
 			c.test.TestUnmarshal(t, c.xml, c.pvar)
 		}
 	}

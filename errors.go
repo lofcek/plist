@@ -13,18 +13,20 @@ var ErrMustBePointer = errors.New("Value must be a pointer.")
 type UnexpectedTokenError struct {
 	Expected string
 	Got      interface{}
+	Offset   int64
 }
 
-func NewUnexpectedTokenError(expected string, got interface{}) *UnexpectedTokenError {
+func NewUnexpectedTokenError(expected string, got interface{}, offset int64) *UnexpectedTokenError {
 	return &UnexpectedTokenError{
-		expected, got,
+		expected, got, offset,
 	}
 }
 
 func (err *UnexpectedTokenError) Error() string {
-	return fmt.Sprintf("Unexpected token: Expects %s, got %#v",
+	return fmt.Sprintf("Unexpected token: Expects %s, got %#v (offset=%d)",
 		err.Expected,
-		err.Got)
+		err.Got,
+		err.Offset)
 }
 
 type CannotParseTypeError struct {
