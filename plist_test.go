@@ -70,11 +70,13 @@ func TestUnmarshalPlist(t *testing.T) {
 		{all, `<array><integer>4</integer><integer>2</integer></array>`, &ai, UnmarshalExpectsEq{[]int{4, 2}}},
 		{all, `<array></integer>`, &ai, UnmarshalExpectsError{&xml.SyntaxError{}}},
 		{all, ` <!-- use spaces and comments inside--> <array><!-- --><real>4</real> <real>2</real><!-- --> </array> <!-- -->`, &af32, UnmarshalExpectsEq{[]float32{4, 2}}},
-		{all, `<any><key>B</key><true/><key>I</key><integer>42</integer></any>`, &s1, UnmarshalExpectsEq{S1{42, true}}},
+		{all, `<dict><key>B</key><true/><key>I</key><integer>42</integer></dict>`, &s1, UnmarshalExpectsEq{S1{42, true}}},
 		{all, `<integer>4</integer>`, &pi, UnmarshalExpectsEq{&i4}},
-		{all, `<any><key>B</key><true/><key>I</key><integer>42</integer></any>`, &ps1, UnmarshalExpectsEq{&S1{42, true}}},
-		{all, `<any><key>B</key><integer>1</integer><key>A</key><integer>2</integer><key>C</key><integer>3</integer></any>`, &s2, UnmarshalExpectsEq{S2{B:1, C:2, A:3, D:0}}},
-		{all, `<any><key>B</key><integer>1</integer><key>A</key><integer>2</integer><key>C</key><integer>3</integer><key>D</key><integer>5</integer></any>`, &s2, UnmarshalExpectsEq{S2{B:1, C:2, A:3, D:0}}},
+		{all, `<dict><key>B</key><true/><key>I</key><integer>42</integer></dict>`, &ps1, UnmarshalExpectsEq{&S1{42, true}}},
+		{all, `<dict><key>B</key><integer>1</integer><key>A</key><integer>2</integer><key>C</key><integer>3</integer></dict>`, &s2, UnmarshalExpectsEq{S2{B:1, C:2, A:3, D:0}}},
+		{all, `<dict><key>B</key><integer>1</integer><key>A</key><integer>2</integer><key>C</key><integer>3</integer><key>D</key><integer>5</integer></dict>`, &s2, UnmarshalExpectsEq{S2{B:1, C:2, A:3, D:0}}},
+		{all, `<dict></dict>`, &s1, UnmarshalExpectsEq{S1{0,false}}},
+		{all, `<not-dict></not-dict>`, &s1, UnmarshalExpectsError{&UnexpectedTokenError{}}},
 	}
 
 	for _, c := range test_cases {

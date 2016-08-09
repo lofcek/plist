@@ -234,6 +234,9 @@ func (d *Decoder) decodeElement(v reflect.Value, se xml.StartElement) error {
 			}
 			return nil
 		} else {
+			if se.Name.Local != "dict" {
+				return d.setError(NewUnexpectedTokenError("<dict>", se, d.d.InputOffset()))
+			}
 			// this struct have to decoded to members
 			for {
 				t, err := d.firstNotEmptyToken()
