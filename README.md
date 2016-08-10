@@ -10,5 +10,4 @@ TODOs:
 - data could be encoded not not in io.Writers, but also in something like json.RawMessage
 - write examples of using the library into this file
 - recovery from panic
-- ignore <?xml version="1.0" encoding="UTF-8"?> or <!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
 - allow export dict into map[string]interface{}

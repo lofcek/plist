@@ -91,7 +91,7 @@ func (d *Decoder) firstNotEmptyToken() (xml.Token, error) {
 			return t, d.setError(err)
 		}
 		switch t := t.(type) {
-		case xml.Comment:
+		case xml.Comment, xml.ProcInst, xml.Directive:
 			continue
 		case xml.CharData:
 			if len(bytes.TrimSpace([]byte(t))) == 0 {

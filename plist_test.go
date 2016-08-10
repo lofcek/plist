@@ -77,6 +77,7 @@ func TestUnmarshalPlist(t *testing.T) {
 		{all, `<dict><key>B</key><integer>1</integer><key>A</key><integer>2</integer><key>C</key><integer>3</integer><key>D</key><integer>5</integer></dict>`, &s2, UnmarshalExpectsEq{S2{B:1, C:2, A:3, D:0}}},
 		{all, `<dict></dict>`, &s1, UnmarshalExpectsEq{S1{0,false}}},
 		{all, `<not-dict></not-dict>`, &s1, UnmarshalExpectsError{&UnexpectedTokenError{}}},
+		{all, `<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd"><true/>`, &b, UnmarshalExpectsEq{true}},
 	}
 
 	for _, c := range test_cases {
