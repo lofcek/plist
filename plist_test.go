@@ -33,12 +33,12 @@ func TestUnmarshalPlist(t *testing.T) {
 	var s1 S1
 	var ps1 *S1
 
-	type S2 struct {	// struct with and without tags
+	type S2 struct { // struct with and without tags
 		// plist shold swap names A and X
-		A	int `plist:"C"`
-		B	int
-		C	int `plist:"A"`
-		D	int `plist:"-"`
+		A int `plist:"C"`
+		B int
+		C int `plist:"A"`
+		D int `plist:"-"`
 	}
 	var s2 S2
 	var iface interface{}
@@ -84,9 +84,9 @@ func TestUnmarshalPlist(t *testing.T) {
 		{all, `<dict><key>B</key><true/><key>I</key><integer>42</integer></dict>`, &s1, UnmarshalExpectsEq{S1{42, true}}},
 		{all, `<integer>4</integer>`, &pi, UnmarshalExpectsEq{&i4}},
 		{all, `<dict><key>B</key><true/><key>I</key><integer>42</integer></dict>`, &ps1, UnmarshalExpectsEq{&S1{42, true}}},
-		{all, `<dict><key>B</key><integer>1</integer><key>A</key><integer>2</integer><key>C</key><integer>3</integer></dict>`, &s2, UnmarshalExpectsEq{S2{B:1, C:2, A:3, D:0}}},
-		{all, `<dict><key>B</key><integer>1</integer><key>A</key><integer>2</integer><key>C</key><integer>3</integer><key>D</key><integer>5</integer></dict>`, &s2, UnmarshalExpectsEq{S2{B:1, C:2, A:3, D:0}}},
-		{all, `<dict></dict>`, &s1, UnmarshalExpectsEq{S1{0,false}}},
+		{all, `<dict><key>B</key><integer>1</integer><key>A</key><integer>2</integer><key>C</key><integer>3</integer></dict>`, &s2, UnmarshalExpectsEq{S2{B: 1, C: 2, A: 3, D: 0}}},
+		{all, `<dict><key>B</key><integer>1</integer><key>A</key><integer>2</integer><key>C</key><integer>3</integer><key>D</key><integer>5</integer></dict>`, &s2, UnmarshalExpectsEq{S2{B: 1, C: 2, A: 3, D: 0}}},
+		{all, `<dict></dict>`, &s1, UnmarshalExpectsEq{S1{0, false}}},
 		{all, `<not-dict></not-dict>`, &s1, UnmarshalExpectsError{&UnexpectedTokenError{}}},
 		{all, `<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd"><true/>`, &b, UnmarshalExpectsEq{true}},
 
@@ -96,10 +96,10 @@ func TestUnmarshalPlist(t *testing.T) {
 		{all, `<real>42</real>`, &iface, UnmarshalExpectsEq{float64(42)}},
 		{all, `<string>hello</string>`, &iface, UnmarshalExpectsEq{"hello"}},
 		{all, `<date>2016-05-04T03:02:01Z</date>`, &iface, UnmarshalExpectsEq{time.Date(2016, 5, 4, 3, 2, 1, 0, time.UTC)}},
-		{all, `<data>aGVsbG8=</data>`, &iface,  UnmarshalExpectsEq{*bytes.NewBuffer([]byte("hello"))}},
-		{all, `<dict><key>x</key><true/><key>y</key><false/></dict>`, &m1, UnmarshalExpectsEq{map[string]interface{}{"x": true, "y":false}}},
-		{all, `<dict><key>x</key><true/><key>y</key><false/></dict>`, &m2, UnmarshalExpectsEq{map[string]bool{"x": true, "y":false}}},
-		{all, `<dict><key>x</key><true/><key>y</key><false/></dict>`, &iface, UnmarshalExpectsEq{map[string]interface{}{"x": true, "y":false}}},
+		{all, `<data>aGVsbG8=</data>`, &iface, UnmarshalExpectsEq{*bytes.NewBuffer([]byte("hello"))}},
+		{all, `<dict><key>x</key><true/><key>y</key><false/></dict>`, &m1, UnmarshalExpectsEq{map[string]interface{}{"x": true, "y": false}}},
+		{all, `<dict><key>x</key><true/><key>y</key><false/></dict>`, &m2, UnmarshalExpectsEq{map[string]bool{"x": true, "y": false}}},
+		{all, `<dict><key>x</key><true/><key>y</key><false/></dict>`, &iface, UnmarshalExpectsEq{map[string]interface{}{"x": true, "y": false}}},
 	}
 
 	for _, c := range test_cases {
@@ -121,7 +121,8 @@ type UnmarshalExpectsEq struct {
 }
 
 func (res UnmarshalExpectsEq) TestUnmarshal(t *testing.T, xml_text string, v interface{}) {
-	err := Unmarshal([]byte(xml_text), v)
+	var errors []error
+	err := UnmarshalWithErrCallback([]byte(xml_text), v, func(err error) { errors = append(errors, err) })
 	if err != nil {
 		t.Errorf("Unmarshaling of %q into %T unexpectedly failed: %#s", xml_text, v, err)
 		return
@@ -132,6 +133,11 @@ func (res UnmarshalExpectsEq) TestUnmarshal(t *testing.T, xml_text string, v int
 		t.Errorf("Unmarshaling of %q into %T should return %#v not %#v", xml_text, v, res.expected_val, val)
 		return
 	}
+
+	if len(errors) != 0 {
+		t.Errorf("Unmarshaling of %q into %T should not call any OnError callback, but was called %d time(s) with arguments %#v", xml_text, v, len(errors), errors)
+		return
+	}
 }
 
 type UnmarshalExpectsError struct {
@@ -139,8 +145,12 @@ type UnmarshalExpectsError struct {
 }
 
 func (exp UnmarshalExpectsError) TestUnmarshal(t *testing.T, xml_text string, v interface{}) {
-	err := Unmarshal([]byte(xml_text), v)
+	var errors []error
+	err := UnmarshalWithErrCallback([]byte(xml_text), v, func(err error) { errors = append(errors, err) })
 	if reflect.TypeOf(err) != reflect.TypeOf(exp.errType) {
 		t.Errorf("Unmarshaling of %q into %T expected error %#v, but got %#v", xml_text, v, exp.errType, err)
+	}
+	if len(errors) != 1 || errors[0] != err {
+		t.Errorf("Unmarshaling of %q into %T should call OnError callback just one with %#v, but it was called %d times (%#v)", xml_text, v, err, len(errors), errors)
 	}
 }
