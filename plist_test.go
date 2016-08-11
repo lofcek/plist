@@ -41,6 +41,7 @@ func TestUnmarshalPlist(t *testing.T) {
 		D	int `plist:"-"`
 	}
 	var s2 S2
+	var iface interface{}
 
 	type TestUnmarshal struct {
 		run  bool
@@ -51,7 +52,9 @@ func TestUnmarshalPlist(t *testing.T) {
 
 	all := true
 	test_cases := []TestUnmarshal{
-		{all, `<true/>  aa`, &b, UnmarshalExpectsError{&UnexpectedTokenError{}}},
+		// decode primitive types
+		{all, `<true/>`, &b, UnmarshalExpectsEq{true}},
+		{all, `<false/>`, &b, UnmarshalExpectsEq{false}},
 		{all, `<string>a</string>`, &s, UnmarshalExpectsEq{"a"}},
 		{all, `<string>&lt;&gt;</string>`, &s, UnmarshalExpectsEq{"<>"}},
 		{all, `<integer>42</integer>`, &i, UnmarshalExpectsEq{int(42)}},
@@ -62,14 +65,20 @@ func TestUnmarshalPlist(t *testing.T) {
 		{all, `<integer>10</integer>`, &up, UnmarshalExpectsEq{uintptr(10)}},
 		{all, `<integer>10</integer>`, new(chan int), UnmarshalExpectsError{&CannotParseTypeError{}}},
 		{all, `<real>3.14</real>`, &f32, UnmarshalExpectsEq{float32(3.14)}},
-		{all, `<false/>`, &b, UnmarshalExpectsEq{false}},
-		{all, `<true/>`, &b, UnmarshalExpectsEq{true}},
+		// spaces could be skipped, any not empty text should cause panic
 		{all, `<true/>  `, &b, UnmarshalExpectsEq{true}},
+		{all, `<true/>  aa`, &b, UnmarshalExpectsError{&UnexpectedTokenError{}}},
+
+		// special types like date or data
 		{all, `<date>2016-05-04T03:02:01Z</date>`, &tm, UnmarshalExpectsEq{time.Date(2016, 5, 4, 3, 2, 1, 0, time.UTC)}},
 		{all, `<data>aGVsbG8=</data>`, &buf, UnmarshalExpectsEq{*bytes.NewBuffer([]byte("hello"))}},
+
+		// arrays
 		{all, `<array><integer>4</integer><integer>2</integer></array>`, &ai, UnmarshalExpectsEq{[]int{4, 2}}},
 		{all, `<array></integer>`, &ai, UnmarshalExpectsError{&xml.SyntaxError{}}},
 		{all, ` <!-- use spaces and comments inside--> <array><!-- --><real>4</real> <real>2</real><!-- --> </array> <!-- -->`, &af32, UnmarshalExpectsEq{[]float32{4, 2}}},
+
+		// dictionaries
 		{all, `<dict><key>B</key><true/><key>I</key><integer>42</integer></dict>`, &s1, UnmarshalExpectsEq{S1{42, true}}},
 		{all, `<integer>4</integer>`, &pi, UnmarshalExpectsEq{&i4}},
 		{all, `<dict><key>B</key><true/><key>I</key><integer>42</integer></dict>`, &ps1, UnmarshalExpectsEq{&S1{42, true}}},
@@ -78,6 +87,14 @@ func TestUnmarshalPlist(t *testing.T) {
 		{all, `<dict></dict>`, &s1, UnmarshalExpectsEq{S1{0,false}}},
 		{all, `<not-dict></not-dict>`, &s1, UnmarshalExpectsError{&UnexpectedTokenError{}}},
 		{all, `<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd"><true/>`, &b, UnmarshalExpectsEq{true}},
+
+		// decode into interface{}
+		{all, `<true/>`, &iface, UnmarshalExpectsEq{true}},
+		{all, `<integer>42</integer>`, &iface, UnmarshalExpectsEq{int64(42)}},
+		{all, `<string>hello</string>`, &iface, UnmarshalExpectsEq{"hello"}},
+		{all, `<date>2016-05-04T03:02:01Z</date>`, &iface, UnmarshalExpectsEq{time.Date(2016, 5, 4, 3, 2, 1, 0, time.UTC)}},
+		{all, `<data>aGVsbG8=</data>`, &iface,  UnmarshalExpectsEq{*bytes.NewBuffer([]byte("hello"))}},
+		{all, `<array><true/><false/><true/></array>`, &iface, UnmarshalExpectsEq{[]interface{}{true, false, true}}},
 	}
 
 	for _, c := range test_cases {

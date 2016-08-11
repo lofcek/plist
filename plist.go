@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	//"fmt"
+	// "fmt"
 )
 
 func Unmarshal(b []byte, v interface{}) error {
@@ -286,7 +286,39 @@ func (d *Decoder) decodeElement(v reflect.Value, se xml.StartElement) error {
 	case reflect.Ptr:
 		v.Set(reflect.New(v.Type().Elem()))
 		return d.decodeElement(reflect.Indirect(v), se)
+	case reflect.Interface:
+		switch(se.Name.Local) {
+			default:
+				return d.setError(&CannotParseTypeError{v})
+			case "true", "false":
+				var b bool
+				return d.setError(d.decodeInterface(reflect.ValueOf(&b), se, v))
+			case "integer":
+				var i int64
+				return d.setError(d.decodeInterface(reflect.ValueOf(&i), se, v))
+			case "string":
+				var s string
+				return d.setError(d.decodeInterface(reflect.ValueOf(&s), se, v))
+			case "date":
+				var t time.Time
+				return d.setError(d.decodeInterface(reflect.ValueOf(&t), se, v))
+			case "data":
+				var buf bytes.Buffer
+				return d.setError(d.decodeInterface(reflect.ValueOf(&buf), se, v))
+			case "array":
+				var arr []interface{}
+				return d.setError(d.decodeInterface(reflect.ValueOf(&arr), se, v))
+		}
 	}
+}
+
+func (d *Decoder)decodeInterface(i reflect.Value, se xml.StartElement, v reflect.Value) error {
+	err := d.decodeElement(reflect.Indirect(i), se)
+	if err != nil {
+		return d.setError(err)
+	}
+	v.Set(reflect.Indirect(i))
+	return nil
 }
 
 func ScanCommaFields(data []byte, atEOF bool) (advance int, token []byte, err error) {
