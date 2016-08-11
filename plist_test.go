@@ -42,6 +42,8 @@ func TestUnmarshalPlist(t *testing.T) {
 	}
 	var s2 S2
 	var iface interface{}
+	var m1 map[string]interface{}
+	var m2 map[string]bool
 
 	type TestUnmarshal struct {
 		run  bool
@@ -91,10 +93,13 @@ func TestUnmarshalPlist(t *testing.T) {
 		// decode into interface{}
 		{all, `<true/>`, &iface, UnmarshalExpectsEq{true}},
 		{all, `<integer>42</integer>`, &iface, UnmarshalExpectsEq{int64(42)}},
+		{all, `<real>42</real>`, &iface, UnmarshalExpectsEq{float64(42)}},
 		{all, `<string>hello</string>`, &iface, UnmarshalExpectsEq{"hello"}},
 		{all, `<date>2016-05-04T03:02:01Z</date>`, &iface, UnmarshalExpectsEq{time.Date(2016, 5, 4, 3, 2, 1, 0, time.UTC)}},
 		{all, `<data>aGVsbG8=</data>`, &iface,  UnmarshalExpectsEq{*bytes.NewBuffer([]byte("hello"))}},
-		{all, `<array><true/><false/><true/></array>`, &iface, UnmarshalExpectsEq{[]interface{}{true, false, true}}},
+		{all, `<dict><key>x</key><true/><key>y</key><false/></dict>`, &m1, UnmarshalExpectsEq{map[string]interface{}{"x": true, "y":false}}},
+		{all, `<dict><key>x</key><true/><key>y</key><false/></dict>`, &m2, UnmarshalExpectsEq{map[string]bool{"x": true, "y":false}}},
+		{all, `<dict><key>x</key><true/><key>y</key><false/></dict>`, &iface, UnmarshalExpectsEq{map[string]interface{}{"x": true, "y":false}}},
 	}
 
 	for _, c := range test_cases {

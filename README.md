@@ -8,6 +8,6 @@ Parser can unmarshal all known types (including arrays, timestamps and base64 en
 TODOs:
 - support embeeded types
 - data could be encoded not not in io.Writers, but also in something like json.RawMessage
+- allow <data> to be any interface, not only structs (maybe *struct or channel)
 - write examples of using the library into this file
 - recovery from panic
-- allow export dict into map[string]interface{}

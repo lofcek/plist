@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
 	// "fmt"
 )
 
@@ -239,44 +240,31 @@ func (d *Decoder) decodeElement(v reflect.Value, se xml.StartElement) error {
 			}
 			// this struct have to decoded to members
 			for {
-				t, err := d.firstNotEmptyToken()
+				is_key, key, err := d.decodeKey(se)
 				if err != nil {
 					return d.setError(err)
 				}
-
-				switch t := t.(type) {
-				default:
-					return d.setError(NewUnexpectedTokenError("</"+se.Name.Local+">", t, d.d.InputOffset()))
-				case xml.EndElement:
-					return nil // everything was parsed fine
-				case xml.StartElement:
-					if t.Name.Local != "key" {
-						return d.setError(NewUnexpectedTokenError("<key>", &t, d.d.InputOffset()))
-					}
-					var key string
-					err = d.d.DecodeElement(&key, &t)
+				if !is_key {
+					return nil
+				}
+				f, ok := getFieldByName(key, v)
+				//fmt.Printf("getFieldByName %s returns %#v, %t\n", key, f, ok)
+				if ok {
+					err = d.decode(f)
 					if err != nil {
 						return d.setError(err)
 					}
-					f, ok := getFieldByName(key, v)
-					//fmt.Printf("getFieldByName %s returns %#v, %t\n", key, f, ok)
-					if ok {
-						err = d.decode(f)
-						if err != nil {
-							return d.setError(err)
-						}
-					} else {
-						t,err:=d.firstNotEmptyToken()
-						if err != nil {
-							return d.setError(err)
-						}
-						if _, ok := t.(xml.StartElement); !ok {
-							return d.setError(NewUnexpectedTokenError("<any key>", &t, d.d.InputOffset()))
-						}
-						err = d.d.Skip()
-						if err != nil {
-							return d.setError(err)
-						}
+				} else {
+					t,err:=d.firstNotEmptyToken()
+					if err != nil {
+						return d.setError(err)
+					}
+					if _, ok := t.(xml.StartElement); !ok {
+						return d.setError(NewUnexpectedTokenError("<any key>", &t, d.d.InputOffset()))
+					}
+					err = d.d.Skip()
+					if err != nil {
+						return d.setError(err)
 					}
 				}
 			}
@@ -286,6 +274,24 @@ func (d *Decoder) decodeElement(v reflect.Value, se xml.StartElement) error {
 	case reflect.Ptr:
 		v.Set(reflect.New(v.Type().Elem()))
 		return d.decodeElement(reflect.Indirect(v), se)
+	case reflect.Map:
+		v2 := reflect.MakeMap(v.Type())
+		for {
+			is_key, key, err := d.decodeKey(se)
+			if err != nil {
+				return d.setError(err)
+			}
+			if !is_key {
+				v.Set(v2)
+				return nil
+			}
+			p := reflect.New(v.Type().Elem())
+			err = d.decode(reflect.Indirect(p))
+			if err != nil {
+				return d.setError(err)
+			}
+			v2.SetMapIndex(reflect.ValueOf(key), reflect.Indirect(p))
+		}
 	case reflect.Interface:
 		switch(se.Name.Local) {
 			default:
@@ -296,6 +302,9 @@ func (d *Decoder) decodeElement(v reflect.Value, se xml.StartElement) error {
 			case "integer":
 				var i int64
 				return d.setError(d.decodeInterface(reflect.ValueOf(&i), se, v))
+			case "real":
+				var f float64
+				return d.setError(d.decodeInterface(reflect.ValueOf(&f), se, v))
 			case "string":
 				var s string
 				return d.setError(d.decodeInterface(reflect.ValueOf(&s), se, v))
@@ -308,6 +317,9 @@ func (d *Decoder) decodeElement(v reflect.Value, se xml.StartElement) error {
 			case "array":
 				var arr []interface{}
 				return d.setError(d.decodeInterface(reflect.ValueOf(&arr), se, v))
+			case "dict":
+				var m map[string]interface{}
+				return d.setError(d.decodeInterface(reflect.ValueOf(&m), se, v))
 		}
 	}
 }
@@ -319,6 +331,30 @@ func (d *Decoder)decodeInterface(i reflect.Value, se xml.StartElement, v reflect
 	}
 	v.Set(reflect.Indirect(i))
 	return nil
+}
+
+func (d* Decoder)decodeKey(se xml.StartElement)(is_key bool, key string, err error) {
+	t, err := d.firstNotEmptyToken()
+	if err != nil {
+		return false, "", d.setError(err)
+	}
+
+	switch t := t.(type) {
+	default:
+		return false, "", d.setError(NewUnexpectedTokenError("</"+se.Name.Local+">", t, d.d.InputOffset()))
+	case xml.EndElement:
+		return false, key, nil	// everything was parsed fine
+	case xml.StartElement:
+		if t.Name.Local != "key" {
+			return false, "", d.setError(NewUnexpectedTokenError("<key>", &t, d.d.InputOffset()))
+		}
+		var key string
+		err = d.d.DecodeElement(&key, &t)
+		if err != nil {
+			return false, "", d.setError(err)
+		}
+		return true, key, nil
+	}
 }
 
 func ScanCommaFields(data []byte, atEOF bool) (advance int, token []byte, err error) {
